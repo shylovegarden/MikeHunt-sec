@@ -15,8 +15,6 @@ import {
   toLocalSavedVehicle,
   useLocalSavedVehicles,
 } from "@/hooks/useLocalSavedVehicles";
-import { qualityFieldLabel } from "@/lib/data-quality";
-import { Clock3, Flame, Zap } from "lucide-react";
 
 const TITLE_STYLES: Record<
   string,
@@ -110,31 +108,6 @@ export const DiscoveryCard = memo(function DiscoveryCard({
       : `/deal/${deal.id}`;
   const external = href.startsWith("http");
   const isSaved = localSaves.has(deal.id);
-  const resaleBasis = deal.sellEstimate || 0;
-  const confidenceGaps = [
-    !resaleBasis ? "resale comps" : null,
-    !deal.recommendedMaxBid ? "max bid" : null,
-    !deal.trueNetProfit ? "fees/transport/repair" : null,
-    ...(deal.dataQuality?.missing.slice(0, 2).map(qualityFieldLabel) || []),
-  ].filter(Boolean);
-  const decision =
-    deal.vinFlagSeverity === "high" || confidenceGaps.length >= 3
-      ? {
-          label: "Needs evidence",
-          background: "rgba(35, 43, 55, .88)",
-          color: "#ffffff",
-        }
-      : deal.trueNetProfit && deal.trueNetProfit > 0 && deal.recommendedMaxBid
-        ? {
-            label: "Worth a look",
-            background: "rgba(15, 118, 75, .9)",
-            color: "#ffffff",
-          }
-        : {
-            label: "Consider",
-            background: "rgba(161, 98, 7, .9)",
-            color: "#ffffff",
-          };
 
   return (
     <motion.div
@@ -168,13 +141,6 @@ export const DiscoveryCard = memo(function DiscoveryCard({
           ) : (
             <Placeholder />
           )}
-
-          <span
-            className="absolute left-2.5 top-2.5 inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-black"
-            style={{ background: decision.background, color: decision.color }}
-          >
-            {decision.label}
-          </span>
 
           {/* Multi-source chip — floating top-right (the Kayak signal) */}
           {multi && (
@@ -272,43 +238,6 @@ export const DiscoveryCard = memo(function DiscoveryCard({
               ) || deal.vinFlags[0]}
             </span>
           )}
-
-          {/* Forecast chip — the predictive layer surfaced on the card: urgency + time-to-sell, so the
-              engine's forward-looking read shows in the browse, not just the detail page. */}
-          {deal.prediction &&
-            (deal.prediction.urgency === "act_now" ||
-              deal.prediction.urgency === "soon" ||
-              deal.prediction.velocity === "fast") && (
-              <span
-                className="inline-flex w-fit items-center gap-1 rounded-[var(--r1)] px-2 py-0.5 text-[10px] font-black"
-                style={
-                  deal.prediction.urgency === "act_now"
-                    ? { background: "var(--rlo)", color: "var(--red)" }
-                    : {
-                        background:
-                          "color-mix(in srgb, var(--green) 14%, transparent)",
-                        color: "var(--green)",
-                      }
-                }
-                title="Forecast: how fast this market clears + whether to act now"
-              >
-                {deal.prediction.urgency === "act_now" ? (
-                  <Flame className="h-3 w-3" aria-hidden="true" />
-                ) : deal.prediction.velocity === "fast" ? (
-                  <Zap className="h-3 w-3" aria-hidden="true" />
-                ) : (
-                  <Clock3 className="h-3 w-3" aria-hidden="true" />
-                )}
-                {deal.prediction.urgency === "act_now"
-                  ? "Act now"
-                  : deal.prediction.velocity === "fast"
-                    ? "Fast market"
-                    : "Move soon"}
-                {deal.prediction.daysToSell != null
-                  ? ` · ~${deal.prediction.daysToSell}d`
-                  : ""}
-              </span>
-            )}
 
           {/* Meta: lane · mileage · location */}
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-[var(--t4)]">
@@ -425,6 +354,28 @@ export const DiscoveryCard = memo(function DiscoveryCard({
           <p className="text-[11px] font-semibold text-[var(--t4)]">
             {relativeFreshness(deal.lastSeenAt)} ·{" "}
             {deal.sourceUrl ? "source linked" : "source link unavailable"}
+          </p>
+
+          <p className="text-[11px] leading-relaxed text-[var(--t3)]">
+            {`Ask $${deal.askPrice.toLocaleString()}`}
+            {" · "}
+            {deal.soldAnchored && deal.sellEstimate && (deal.compCount || 0) > 0
+              ? `Comp-backed resale $${Math.round(deal.sellEstimate).toLocaleString()} · ${deal.compCount} comps`
+              : deal.sellEstimate && !deal.soldAnchored
+                ? `Ask-based estimate $${Math.round(deal.sellEstimate).toLocaleString()}${
+                    deal.compCount
+                      ? ` · ${deal.compCount} listing asks`
+                      : ""
+                  }`
+                : "Resale basis not on file."}
+            {` · ${relativeFreshness(deal.lastSeenAt)}`}
+            {deal.valueAsOf ? ` · as of ${new Date(deal.valueAsOf).toLocaleDateString()}` : ""}
+            {deal.source ? ` · ${deal.source.replace(/_/g, " ")}` : ""}
+            {deal.sellerType === "dealer"
+              ? " · Dealer"
+              : deal.sellerType === "private"
+                ? " · Private"
+                : ""}
           </p>
 
           {/* Price and practical ceiling stay adjacent so the acquisition decision is readable. */}
